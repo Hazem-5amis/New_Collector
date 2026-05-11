@@ -8,11 +8,11 @@ app = Flask(__name__)
 
 # --- إعدادات wkhtmltopdf الديناميكية ---
 if platform.system() == "Windows":
-    # المسار الخاص بجهازك أثناء التطوير
+    # المسار المحلي الخاص بجهازك
     path_wkhtmltopdf = r'D:\Lectuers\Semester 6\Intelligent Agent\project\books_scraper_project\programs\wkhtmltopdf\bin\wkhtmltopdf.exe'
     config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
 else:
-    # على السيرفر (Linux) يتم استدعاؤه مباشرة بعد تثبيته بـ sudo apt install wkhtmltopdf
+    # على Railway (Linux)
     config = pdfkit.configuration(wkhtmltopdf='/usr/bin/wkhtmltopdf')
 
 def generate_pdf_file(title, content, article_id):
@@ -23,7 +23,6 @@ def generate_pdf_file(title, content, article_id):
     file_name = f"summary_{article_id}.pdf"
     file_path = os.path.join(pdf_folder, file_name)
     
-    # تحسين التنسيق ليدعم العربية بشكل أفضل في السيرفرات
     html_content = f"""
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
@@ -31,9 +30,9 @@ def generate_pdf_file(title, content, article_id):
         <meta charset="UTF-8">
         <style>
             body {{ font-family: 'Arial', sans-serif; text-align: right; padding: 20px; }}
-            h1 {{ color: #2c3e50; border-bottom: 2px solid #3498db; pb: 10px; }}
+            h1 {{ color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }}
             p {{ font-size: 16px; line-height: 1.8; color: #34495e; }}
-            .footer {{ color: #7f8c8d; font-size: 12px; margin-top: 50px; border-top: 1px solid #eee; pt: 10px; }}
+            .footer {{ color: #7f8c8d; font-size: 12px; margin-top: 50px; border-top: 1px solid #eee; padding-top: 10px; }}
         </style>
     </head>
     <body>
@@ -58,11 +57,12 @@ def generate_pdf_file(title, content, article_id):
         pdfkit.from_string(html_content, file_path, configuration=config, options=options)
         return file_name
     except Exception as e:
-        print(f"Error generating PDF: {e}")
+        print(f"❌ Error generating PDF: {e}")
         return None
 
 def get_news_by_categories(search_query=None):
     db = connect_db()
+    if not db: return {}
     cursor = db.cursor(dictionary=True)
     categories = ['Wars & Conflicts', 'Economy & Gold', 'Sports', 'Technology']
     organized_news = {}
@@ -99,12 +99,11 @@ def add_news_from_n8n():
     url = data.get('link')
     source = "AI News Agent"
 
-    db = None
+    db = connect_db()
+    if not db: return jsonify({"status": "error", "message": "Database connection failed"}), 500
+
     try:
-        db = connect_db()
         cursor = db.cursor()
-        
-        # التأكد من عدم تكرار الرابط
         cursor.execute("SELECT id FROM articles WHERE url = %s", (url,))
         if cursor.fetchone() is None:
             sql = "INSERT INTO articles (title, description, category, url, source_name) VALUES (%s, %s, %s, %s, %s)"
@@ -124,8 +123,7 @@ def add_news_from_n8n():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
-        if db:
-            db.close()
+        db.close()
 
 @app.route('/')
 def index():
@@ -133,12 +131,12 @@ def index():
     news_data = get_news_by_categories(search_query)
     return render_template('news_report.html', organized_news=news_data, search_query=search_query)
 
-# إضافة Route لصفحة الأتمتة للربط مع n8n
 @app.route('/automation')
 def automation():
-    # استبدل هذا بالـ URL الخاص بـ n8n على السيرفر
     n8n_url = "https://hamzayassen.app.n8n.cloud/" 
     return render_template('automation.html', n8n_url=n8n_url)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # لتشغيله على Railway، نحتاج لاستخدام المنفذ المخصص من البيئة
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
