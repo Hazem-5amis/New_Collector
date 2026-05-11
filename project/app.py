@@ -16,9 +16,13 @@ else:
     config = pdfkit.configuration(wkhtmltopdf='/usr/bin/wkhtmltopdf')
 
 def generate_pdf_file(title, content, article_id):
-    pdf_folder = os.path.join('static', 'pdfs')
+    # تحديد المسار الكامل
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    pdf_folder = os.path.join(base_path, 'static', 'pdfs')
+    
+    # إنشاء الفولدر لو مش موجود
     if not os.path.exists(pdf_folder):
-        os.makedirs(pdf_folder)
+        os.makedirs(pdf_folder, exist_ok=True)
     
     file_name = f"summary_{article_id}.pdf"
     file_path = os.path.join(pdf_folder, file_name)
